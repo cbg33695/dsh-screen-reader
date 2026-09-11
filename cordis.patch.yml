@@ -1,0 +1,15 @@
+# Profile-bundle patch layer for dsh-screen-reader.
+#
+# Installing this package as a profile bundle inserts ONE host row that loads this
+# package itself. Everything the plugin contributes (all eight tools) is installed
+# from that single entry point, so no preset switch is needed and the tools are
+# available to every session.
+#
+# `config` is intentionally empty in 0.1.0: the tunables live as named constants at
+# the top of lib/vision.js so they can be read and changed in one place. Passing a
+# config object is accepted but unused for now.
+
+- insert:
+    - id: screen-reader
+      name: dsh-screen-reader
+      config: {}

@@ -1,0 +1,55 @@
+{
+  "name": "dsh-screen-reader",
+  "version": "0.1.0",
+  "description": "Let a text-only model SEE the screen: capture the whole desktop / one window / one region, have a vision model transcribe it, keep a few minutes of rolling screen memory, compute exact local pixel diffs, and self-calibrate the vision pipeline against known ground truth. Windows only.",
+  "type": "module",
+  "author": "cbg33695",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "scripts/",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "vision",
+    "screen",
+    "screenshot",
+    "ocr",
+    "multimodal",
+    "text-only-model",
+    "pixel-diff",
+    "cordis",
+    "windows"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cbg33695/dsh-screen-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cbg33695/dsh-screen-reader/issues"
+  },
+  "homepage": "https://github.com/cbg33695/dsh-screen-reader#readme"
+}

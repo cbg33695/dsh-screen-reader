@@ -1,0 +1,6 @@
+# Normalise line endings so a collaborator on another platform does not see every
+# file as modified. The PowerShell scripts stay CRLF, which is what Windows expects.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
