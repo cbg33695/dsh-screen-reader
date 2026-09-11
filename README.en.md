@@ -137,15 +137,19 @@ Observed: that directory has emptied itself before (28 files / 2.1 MB → 0), bu
 
 ## Install
 
-### Option 1 — as a profile bundle (recommended)
+> **Two methods, and only the second one has actually been verified.** See the verification table in the Chinese README.
+
+### Option 1 — as a profile bundle (recommended, **but never tested**)
 
 ```sh
-dsh plugin --profile web add github:<your-username>/dsh-screen-reader
+dsh plugin --profile web add github:cbg33695/dsh-screen-reader
 ```
 
 Restart the web profile and refresh the browser. The tools then appear in **every** session, with no preset switching.
 
-### Option 2 — as an agent preset (verified working)
+This is the ecosystem's standard shape and the reason it is listed first: one command, no preset switching, lowest friction for someone trying it out. **But I have never installed it on a real instance** (see the verification table). If your instance refuses it, use Option 2 and paste the full error into an issue.
+
+### Option 2 — as an agent preset (**verified working**)
 
 Put `lib/` and `scripts/` under `.agent-presets/<id>/plugin/` and add one row to `agent.cordis.yml`:
 
@@ -156,6 +160,19 @@ Put `lib/` and `scripts/` under `.agent-presets/<id>/plugin/` and add one row to
 ```
 
 > Note: relative-path resolution differs between the two install modes; see the design notes in the Chinese README.
+
+### Post-install self-check (10 seconds)
+
+Open a new session and ask:
+
+> Which tools do you have for the screen and for images?
+
+You should see eight: `see_screen`, `screen_watch`, `screen_memory`, `vision_routes`, `see_image`, `see_diff`, `vision_selftest`, `vision_storage`.
+
+- **They appear** → installed. Run `vision_routes` next to confirm this machine has a model route that declares image input.
+- **They do not** → the bundle was not loaded. Use Option 2, or file an issue with your DSH version, profile name and the full error.
+
+> ⚠️ `vision_selftest` is the only self-check that **spends money** — it really calls the model. Skip it if you would rather not.
 
 ---
 
@@ -207,6 +224,30 @@ This plugin **captures your entire desktop**, including anything you would rathe
 - ~40 lines of duplicated prompt and error handling between `screen.js` and `toolbox.js` (see above; addressed in v0.2)
 - Full-window accuracy is unaffected by resolution, but **whether cropping is** remains unverified
 - Diff bounding boxes are 30–45 px larger than the real changes (tunable via `-Padding` / `-Dilate` / `-GridW`)
+
+---
+
+## Reporting problems
+
+This plugin is **experimental** and already admits to plenty it cannot do. The feedback I want most is "**here is where it was wrong for you**", not praise.
+
+Please include:
+
+1. **Install method** (bundle / preset) and `dsh --version`
+2. **What you pointed it at** (which application, what was on screen)
+3. **What it got wrong, and what the right answer was** — the most valuable item. If that screen has **programmatic ground truth** (a file's contents, Blender's scene objects, a command's output), paste it too; that is how the Blender test got hard numbers
+4. **A screenshot** for recognition errors where possible (redact first)
+5. The **full error** for install failures
+
+Especially wanted:
+
+| Question | Why |
+|---|---|
+| **On what kind of screen does it invent things?** | Far more serious than merely getting something wrong — invented content leads people to wrong decisions, and I only know it *can* happen (low-contrast areas), not where the boundary is |
+| **How tight does a crop have to be?** | I verified that full-window resolution does not affect accuracy, but **the cropping boundary is completely unverified**. It decides how the tool should be used |
+| **What continuous recording really costs** | I never measured an hour of recording. Anyone leaving it on needs that number |
+
+If you run `vision_selftest`, **posting the score is the single biggest contribution** — it is the one hard number this project does not have.
 
 ---
 
