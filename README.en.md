@@ -44,6 +44,32 @@ README in Chinese: [README.md](README.md)
 
 ---
 
+## How images reach the model (this decides how the plugin is used)
+
+From 0.2 the screen tools **no longer hand the image to a second model for transcription — they return the image itself as a content block**, so the model of the current session looks at it directly. That path is verified (see the status table).
+
+Images are also force-normalised on the **provider** side, and that decides everything about usage:
+
+```
+14px patch grid · 3:1 downsample per axis · 384 tokens per image, capped
+```
+
+| What you captured | Lands on | Screen pixel → request pixel |
+|---|---|---|
+| Full window 1942×1030 | ≈ 950×504 | 0.49 |
+| The same, downscaled to 1295×687 | ≈ 950×504 | 0.49 |
+| A crop of 675×387 | ≈ 879×504 | **1.30** |
+
+Three consequences are therefore **necessary, not coincidental**:
+
+1. **Source resolution does not affect accuracy at full-window scale** — two different resolutions land on the *same* grid. This is the mechanical reason my ablation found the downscaled one slightly better
+2. **Cropping is the only way to buy detail** — about **2.7×** the effective detail density, at essentially the same cost
+3. **Raising capture resolution buys no accuracy** — a larger source is simply compressed harder
+
+**So the intended usage is: pin the application with `window`, then zoom with `region`.**
+
+---
+
 ## Measured effects
 
 Everything below was measured on real runs, not designed.
@@ -119,10 +145,13 @@ Same Blender window, same prompt, same model — only the resolution changed:
 
 That has to be inferred from the **text** in the rolling memory — which is the main reason `screen_memory` exists.
 
-### 6. Slow and expensive
+### 6. Cost (corrected — the earlier figure was wrong)
 
-Every call produces a large amount of reasoning tokens first (measured 788–6621 characters) before any answer. Each call takes seconds and is billed. **Continuous recording keeps spending**, which is why it defaults to off and enforces a 12-second minimum gap between calls.
+**Images are cheap.** The provider normalises every request image to **≤384 vision tokens** regardless of source size. My earlier claim of "about 1000–1500 tokens per look" **was wrong**.
 
+**What is expensive is the model's own reasoning.** On the transcription compatibility path that model spends a large number of reasoning tokens first (measured 788–6621 characters). The **default path now calls no second model at all** — the image goes straight to the current model.
+
+**Continuous recording is now free**: `screen_watch` capturing a frame **calls no model**; you pay only when `screen_memory` hands frames back.
 ### 7. The attachment store grows
 
 Every vision call writes one content-addressed file into `${DSH_HOME}/attachments`, and **the plugin cannot prevent it** (an `llm.stream` image block requires a persisted attachment reference).

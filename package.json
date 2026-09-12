@@ -1,6 +1,6 @@
 {
   "name": "dsh-screen-reader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Let a text-only model SEE the screen: capture the whole desktop / one window / one region, have a vision model transcribe it, keep a few minutes of rolling screen memory, compute exact local pixel diffs, and self-calibrate the vision pipeline against known ground truth. Windows only.",
   "type": "module",
   "author": "cbg33695",
