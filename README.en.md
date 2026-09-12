@@ -54,17 +54,31 @@ Images are also force-normalised on the **provider** side, and that decides ever
 14px patch grid · 3:1 downsample per axis · 384 tokens per image, capped
 ```
 
-| What you captured | Lands on | Screen pixel → request pixel |
+| What you captured | What the request actually carried | Screen pixel → request pixel |
 |---|---|---|
 | Full window 1942×1030 | ≈ 950×504 | 0.49 |
 | The same, downscaled to 1295×687 | ≈ 950×504 | 0.49 |
-| A crop of 675×387 | ≈ 879×504 | **1.30** |
+| A crop of 675×387 | ≈ 879×504 | 1.30 |
+| **A crop of 346×346 (measured)** | **346×346, untouched** | **1.00** |
+
+(The 675×387 row is *derived from source constants*, not measured. The 346×346 row is measured.)
+
+Normalisation actually happens in **two stages**, and the first one is measurable: the harness itself caps the request at roughly **640,000 pixels** — a 1920×1080 screenshot went out as **1066×600** (639,600 px) — and the provider then squeezes that onto its token grid. **Cropping works because a small crop is passed through untouched by that first stage**, skipping the 0.555 linear downscale.
 
 Three consequences are therefore **necessary, not coincidental**:
 
 1. **Source resolution does not affect accuracy at full-window scale** — two different resolutions land on the *same* grid. This is the mechanical reason my ablation found the downscaled one slightly better
-2. **Cropping is the only way to buy detail** — about **2.7×** the effective detail density, at essentially the same cost
+2. **Cropping is the only way to buy detail** — measured at roughly **2×** the effective detail density (1.00 vs 0.49). The earlier "2.7×" was a pure derivation depending on how the provider treats small images; I never measured it, so **it has been revised down to the measured value**
 3. **Raising capture resolution buys no accuracy** — a larger source is simply compressed harder
+
+**This part is measured, not derived.** Same sidebar region, same prompt:
+
+| Input | Session title as read |
+|---|---|
+| Full screen 1920×1080 | 杀**戳**尖塔模组制作 ✗ |
+| Crop 346×346 | 杀**戮**尖塔模组制作 ✓ |
+
+Ground truth came from the session index under `${DSH_HOME}/storages`. At full screen, 4 of 5 titles were character-exact and **1 was wrong**; after cropping, **none were wrong**. The full-screen failure mode was exactly **visually similar characters** (戮/戳 share the same right-hand radical) — precisely what a 0.49 sampling rate predicts.
 
 **So the intended usage is: pin the application with `window`, then zoom with `region`.**
 
@@ -127,7 +141,7 @@ Measured case: a cube edited into a **pointed-roof house shape** in a Blender vi
 
 Honest caveat: from that camera angle the pointed roof genuinely was not prominent, so missing it is forgivable in that instance. But "never attributes mesh edits to the object" is a pattern that showed up beyond this one case.
 
-### 4. Resolution is NOT the accuracy lever (counter-intuitive, but tested)
+### 4. Resolution is NOT the accuracy lever, but cropping IS (counter-intuitive, but tested)
 
 Same Blender window, same prompt, same model — only the resolution changed:
 
@@ -136,7 +150,7 @@ Same Blender window, same prompt, same model — only the resolution changed:
 | 1942×1030 (native) | ✅ | not stated | only "a black triangle face" |
 | 1295×687 (44.5% of the pixels) | ✅ | ✅ explicitly "unselected" | ✅ "a non-standard shape… has been edited" |
 
-**The downscaled one scored better.** Conclusion: the model normalises its input, so at full-window scale the source resolution does not affect accuracy. (Behaviour when cropping is untested.)
+**The downscaled one scored better.** Conclusion: the model normalises its input, so at full-window scale the source resolution does not affect accuracy. (Whether cropping helps was untested then — it is **verified once now**: cropping turned a wrong character into the right one.)
 
 ### 5. One frame — no time, no causality
 
@@ -168,7 +182,7 @@ Observed: that directory has emptied itself before (28 files / 2.1 MB → 0), bu
 
 > **Two methods, and only the second one has actually been verified.** See the verification table in the Chinese README.
 
-### Option 1 — as a profile bundle (recommended, **but never tested**)
+### Option 1 — as a profile bundle (recommended, **never installed on a real instance**)
 
 ```sh
 dsh plugin --profile web add github:cbg33695/dsh-screen-reader
@@ -177,6 +191,11 @@ dsh plugin --profile web add github:cbg33695/dsh-screen-reader
 Restart the web profile and refresh the browser. The tools then appear in **every** session, with no preset switching.
 
 This is the ecosystem's standard shape and the reason it is listed first: one command, no preset switching, lowest friction for someone trying it out. **But I have never installed it on a real instance** (see the verification table). If your instance refuses it, use Option 2 and paste the full error into an issue.
+
+> ⚠️ **The 0.2.0 bundle was broken; 0.2.1 fixes it.** Reviewing the code, I found that `lib/screen.js` located its PowerShell helper with `new URL('capture.ps1', import.meta.url)` — but in the package the JS lives in `lib/` while the helpers live in `scripts/`, so it looked for a `lib/capture.ps1` that does not exist. Any bundle install failed on the first capture with
+> `The argument '.../lib/capture.ps1' to the -File parameter does not exist.`
+> The runtime now handles both layouts (the same source is correct as a preset and as a package), and that check is now an assertion in the generator, so a regression fails the build instead of shipping. If you installed 0.2.0, please upgrade.
+> **To be explicit:** what I verified is "the path resolves to a real file and a capture succeeds through it". I still have **not** completed a real bundle install on a live instance.
 
 ### Option 2 — as an agent preset (**verified working**)
 
@@ -230,10 +249,12 @@ This plugin **captures your entire desktop**, including anything you would rathe
 | The vision prompt and retry chain | ✅ measured across many runs |
 | Attachment store reporting | ✅ measured |
 | **`vision_selftest` scoring** | ❌ **never run** |
-| **Bundle install** | ❌ **never run** (only the preset form has been mount-verified) |
-| **A single accuracy number** | ❌ **does not exist** |
+| **Bundle install** | ⚠️ never installed on a real instance. But **0.2.1 fixed a path bug that made every bundle install fail** (see Install), and I did verify "package imports + the resolved .ps1 really exists + a capture succeeds through it" |
+| **A single accuracy number** | ⚠️ only one **tiny-sample** character accuracy (below); **not a benchmark** |
 
-**There is no "92% accurate" figure here because accuracy has never been measured.** Every item under "Measured effects" is a concrete case, not a benchmark.
+**There is still no "92% accurate" benchmark figure here.** Every item under "Measured effects" is a concrete case, not a benchmark.
+
+The closest thing to a number: in one comparison over **5 session titles / 50 Chinese characters**, full-screen 1920×1080 got **1 character wrong**, and a 346×346 crop got **0 wrong**. That sample is far too small to call an accuracy rate — all it shows is that the full-screen failure mode is **visually similar characters**, and that cropping fixes it.
 
 ---
 
@@ -251,7 +272,7 @@ This plugin **captures your entire desktop**, including anything you would rathe
 **Known design compromises**
 
 - ~40 lines of duplicated prompt and error handling between `screen.js` and `toolbox.js` (see above; addressed in v0.2)
-- Full-window accuracy is unaffected by resolution, but **whether cropping is** remains unverified
+- Whether cropping really improves accuracy — **confirmed once** (it fixed a visually-similar-character error), but a single sample cannot be generalised
 - Diff bounding boxes are 30–45 px larger than the real changes (tunable via `-Padding` / `-Dilate` / `-GridW`)
 
 ---

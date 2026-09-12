@@ -31,15 +31,35 @@ $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Every image this plugin writes goes into ONE human-findable folder instead of
-# %TEMP%, so the user can look at it, and so the retention rule below has a single
-# place to enforce. %TEMP% was the old default; it hid these files among unrelated
-# ones with no clue which tool produced them.
-if ([string]::IsNullOrWhiteSpace($Out)) {
-  $visionHome = $env:DSH_HOME
-  if ([string]::IsNullOrWhiteSpace($visionHome)) { $visionHome = Join-Path $env:USERPROFILE '.dsh' }
-  $visionDir = Join-Path $visionHome 'vision'
-  if (-not (Test-Path -LiteralPath $visionDir)) { [void](New-Item -ItemType Directory -Path $visionDir -Force) }
-  $Out = Join-Path $visionDir 'screen.png'
+# %TEMP%, so the user can look at it. %TEMP% was the old default; it hid these files
+# among unrelated ones with no clue which tool produced them. (Retention lives in
+# imageops.ps1 -Mode prune, not here.)
+#
+# -Out may be absolute, or a bare file name. A bare name is resolved INSIDE the
+# vision folder. It used to be taken literally, which wrote the PNG into whatever
+# directory the caller happened to be sitting in, with no extension - so a manual
+# `-Out shot1` silently dropped a screenshot into the process CWD, including a git
+# working tree where it could then be committed. Absolute paths are honoured
+# unchanged, so the documented `-Out C:\temp\x.png` behaves exactly as before.
+$visionHome = $env:DSH_HOME
+if ([string]::IsNullOrWhiteSpace($visionHome)) { $visionHome = Join-Path $env:USERPROFILE '.dsh' }
+$visionDir = Join-Path $visionHome 'vision'
+
+if ([string]::IsNullOrWhiteSpace($Out)) { $Out = 'screen.png' }
+if ([System.IO.Path]::IsPathRooted($Out)) {
+  $Out = [System.IO.Path]::GetFullPath($Out)
+} else {
+  $Out = Join-Path $visionDir $Out
+}
+# GDI+ writes PNG bytes whatever the name says, so a missing extension yields a file
+# that nothing opens by double-click.
+if ([string]::IsNullOrWhiteSpace([System.IO.Path]::GetExtension($Out))) { $Out = $Out + '.png' }
+
+# Create the parent so an absolute -Out into a not-yet-existing folder works instead
+# of throwing under $ErrorActionPreference = 'Stop'.
+$outDir = [System.IO.Path]::GetDirectoryName($Out)
+if (-not [string]::IsNullOrWhiteSpace($outDir) -and -not (Test-Path -LiteralPath $outDir)) {
+  [void](New-Item -ItemType Directory -Path $outDir -Force)
 }
 
 function Fail($message) {
