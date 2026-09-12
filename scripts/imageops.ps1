@@ -51,24 +51,37 @@ function Get-VisionDir {
   return $d
 }
 
-# Keep the folder small: retain the newest $Keep unpinned files, never delete a file
-# written by the current invocation (the caller has not read those yet), and report
-# what went.
+# Keep the folder small by deleting ONLY FILES THIS TOOL CREATED, and report what went.
 #
-# Files named `keep_*` are PINNED and are not counted or deleted. Without that rule a
-# pure mtime policy deletes whatever happens to be oldest, which is exactly how it
-# destroyed the one non-regenerable sample it was supposed to preserve. Pinning costs
-# nothing and needs no extra state: rename the image you care about.
+# Ownership is the load-bearing rule here. Retention used to delete the N oldest files
+# in the folder no matter who wrote them, which meant `-Mode diff` DELETED ITS OWN
+# INPUTS whenever -A/-B happened to live in the same folder as the crops: retention ran
+# after writing, protected this run's crops, and then ate a.png and b.png. That is
+# silent data loss of precisely the thing that cannot be regenerated.
+#
+# So the eligible set is narrowed to the files that actually accumulate, and every
+# caller additionally protects the explicit inputs it was handed.
+#
+# Files named `keep_*` are PINNED and are neither counted nor deleted. Without that
+# rule a pure mtime policy deletes whatever happens to be oldest, which is exactly how
+# it destroyed the one non-regenerable sample it was supposed to preserve.
+$script:VisionOwnedPatterns = @('diff*_A.png', 'diff*_B.png')
+
 function Invoke-VisionPrune($dir, $keep, $protect) {
-  $all = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
-  $candidates = @($all | Where-Object { $_.Name -notlike 'keep_*' })
+  $owned = @($script:VisionOwnedPatterns)
+  $all = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue | Where-Object {
+      $n = $_.Name
+      $mine = $false
+      foreach ($pat in $owned) { if ($n -like $pat) { $mine = $true; break } }
+      $mine
+    } | Sort-Object LastWriteTime -Descending)
   $floor = [math]::Max($keep, @($protect).Count)
-  if ($candidates.Count -le $floor) { return @() }
+  if ($all.Count -le $floor) { return @() }
   $gone = New-Object System.Collections.ArrayList
-  for ($i = $floor; $i -lt $candidates.Count; $i++) {
-    if (@($protect) -contains $candidates[$i].FullName) { continue }
-    Remove-Item -LiteralPath $candidates[$i].FullName -Force -ErrorAction SilentlyContinue
-    [void]$gone.Add($candidates[$i].Name)
+  for ($i = $floor; $i -lt $all.Count; $i++) {
+    if (@($protect) -contains $all[$i].FullName) { continue }
+    Remove-Item -LiteralPath $all[$i].FullName -Force -ErrorAction SilentlyContinue
+    [void]$gone.Add($all[$i].Name)
   }
   return $gone.ToArray()
 }
@@ -316,9 +329,14 @@ if ($Mode -eq 'diff') {
     Write-Output ('FULLB=' + $fullB)
   }
 
-  # Retention runs AFTER writing and never touches this run's crops: the caller is
-  # about to read exactly those. Everything older is fair game.
-  $gone = Invoke-VisionPrune $OutDir $Keep $written.ToArray()
+  # Retention runs AFTER writing. It never touches this run's crops (the caller is about
+  # to read exactly those), and it never touches the two inputs it was handed: those are
+  # the user's own files, and they are the one thing here that cannot be regenerated.
+  $protectedInputs = @($A, $B) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object {
+    try { [System.IO.Path]::GetFullPath($_) } catch { $_ }
+  }
+  $protected = @($written) + @($protectedInputs)
+  $gone = Invoke-VisionPrune $OutDir $Keep $protected
   if (@($gone).Count -gt 0) { Write-Output ('PRUNED=' + (@($gone) -join ',')) }
   Write-Output ('OUTDIR=' + $OutDir)
   $imgA.Dispose()

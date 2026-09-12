@@ -104,10 +104,12 @@ import { install as installToolbox } from './toolbox.js'
 
 export const name = 'dsh-screen-reader'
 
-// Both halves register model tools, so \`tools\` is a hard dependency (Cordis's
-// Guard rejects an undeclared ctx.tools). \`timer\` provides ctx.interval, which
-// the continuous recording loop needs.
-export const inject = ['tools', 'timer']
+// Both halves register model tools, so \`tools\` is a hard dependency (Cordis's Guard
+// rejects an undeclared ctx.tools). That is the ONLY one: this used to declare
+// \`timer\` as well, for the continuous recording loop, which 0.3 removed. A needless
+// hard dependency is not harmless - a profile without that service would leave the
+// plugin waiting forever instead of loading.
+export const inject = ['tools']
 
 export function apply(ctx) {
   installScreen(ctx)
