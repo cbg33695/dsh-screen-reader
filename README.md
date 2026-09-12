@@ -23,7 +23,7 @@
 ## 目录
 
 - [它解决什么问题](#它解决什么问题)
-- [八个工具](#八个工具)
+- [七个工具](#七个工具)
 - [实测效果](#实测效果)
 - [边界：它做不到什么](#边界它做不到什么)
 - [安装](#安装)
@@ -50,7 +50,7 @@
 
 ---
 
-## 八个工具
+## 七个工具
 
 ### 看屏幕
 
@@ -61,14 +61,17 @@
 | `screen_memory` | 把最近几帧**真图**交回给当前模型，外加一条时间线 |
 | `vision_routes` | 探测当前有哪些模型路由声明了图像输入能力 |
 
-### 看图片文件
+### 看两张图的差异
 
 | 工具 | 作用 |
 |---|---|
-| `see_image` | 看一张图片文件（图表、设计稿、别人发来的截图） |
 | `see_diff` | 两张图的差异：**本地精确像素差分定位变化区域 → 只把变化区域交给模型解释** |
 | `vision_selftest` | 自校准：程序画一张每项事实都确定的图 + 施加已知改动 → 让模型描述 → 与已知真值逐项打分 |
 | `vision_storage` | 报告（可选清理）DSH 附件库的规模 |
+
+> **这里没有"看一张图片文件"的工具。** 原来有一个 `see_image`，但它只是内置 `read_image`
+> 的重复实现，而且是较差的那个（多一层模型间转述）。模型自带视觉之后这件事交给内置工具，
+> 已删除。
 
 ---
 
@@ -248,7 +251,7 @@ dsh plugin --profile web add github:cbg33695/dsh-screen-reader
 
 > 你现在有哪些和屏幕、图片相关的工具？
 
-应当列出八个：`see_screen`、`screen_watch`、`screen_memory`、`vision_routes`、`see_image`、`see_diff`、`vision_selftest`、`vision_storage`。
+应当列出七个：`see_screen`、`screen_watch`、`screen_memory`、`vision_routes`、`see_diff`、`vision_selftest`、`vision_storage`。
 
 - **看得到** → 装好了。接着跑一次 `vision_routes`，确认这台机器上存在声明支持图像输入的模型路由（没有的话插件只能用一半功能）
 - **看不到** → bundle 没有被加载。改用方式二，或把 DSH 版本、profile 名、完整报错发到 issue
@@ -324,6 +327,8 @@ dsh plugin --profile web add github:cbg33695/dsh-screen-reader
 ## 已知问题与后续计划
 
 **0.2.1 修了什么：**
+
+- **删掉 `see_image`**：它读一个图片文件再让视觉模型描述，而这就是内置 `read_image` 做的事，并且内置那个更好（它多一层模型间转述）。模型自带视觉之后，这件事没有理由由本插件提供第二套实现。随着它一起删掉的还有只服务于它的两个提示词常量。**工具数从 8 变 7**
 
 - **发布包里的 ps1 路径是坏的（0.2.0 的 bundle 必然启动即失败）**：`lib/screen.js` 与 `lib/toolbox.js` 原来用 `new URL('capture.ps1', import.meta.url)` 找 PowerShell 助手，但发布包里 JS 在 `lib/`、助手在 `scripts/`，所以它们在找一个不存在的 `lib/capture.ps1`。已改为运行期同时适配两种布局——**同一份源码在 preset 与发布包里都对**，打包步骤不再需要重写这一行。同时把生成脚本收进仓库（`tools/build-lib.mjs`），并加上断言：一旦有人改回单布局写法，**构建会失败而不是又悄悄发布一个坏包**
 - **`capture.ps1 -Out` 的裸文件名会污染当前目录**：传 `-Out shot1` 时，脚本把它当字面路径用，于是在**调用者的工作目录**里写下一个没有扩展名的 PNG——如果那个目录恰好是 git 仓库，截图就可能被提交进去。现在裸名字一律解析到 `${DSH_HOME}/vision/` 并自动补 `.png`；绝对路径行为完全不变（已用三项实测覆盖：裸名字 / 绝对路径 / 不传 `-Out`）

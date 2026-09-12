@@ -22,7 +22,7 @@ README in Chinese: [README.md](README.md)
 
 ---
 
-## The eight tools
+## The seven tools
 
 **Screen**
 
@@ -33,14 +33,18 @@ README in Chinese: [README.md](README.md)
 | `screen_memory` | Read the rolling short-term visual memory |
 | `vision_routes` | Report which model routes declare image input support |
 
-**Image files**
+**Comparing two images**
 
 | Tool | Purpose |
 |---|---|
-| `see_image` | Look at one image file (chart, mockup, a screenshot someone sent) |
 | `see_diff` | Two images: **an exact local pixel diff locates the changed regions, then the model explains only those** |
 | `vision_selftest` | Self-calibration: draw an image whose every fact is known by construction, apply known edits, have the model describe them, score against the known truth |
 | `vision_storage` | Report (and optionally prune) the DSH attachment store |
+
+> **There is no "look at one image file" tool here.** There used to be `see_image`, but it was
+> a duplicate of the built-in `read_image` — and the worse of the two, since it added a
+> model-to-model transcription hop. With built-in vision available, that job belongs to the
+> built-in tool, so it was removed.
 
 ---
 
@@ -215,7 +219,7 @@ Open a new session and ask:
 
 > Which tools do you have for the screen and for images?
 
-You should see eight: `see_screen`, `screen_watch`, `screen_memory`, `vision_routes`, `see_image`, `see_diff`, `vision_selftest`, `vision_storage`.
+You should see seven: `see_screen`, `screen_watch`, `screen_memory`, `vision_routes`, `see_diff`, `vision_selftest`, `vision_storage`.
 
 - **They appear** → installed. Run `vision_routes` next to confirm this machine has a model route that declares image input.
 - **They do not** → the bundle was not loaded. Use Option 2, or file an issue with your DSH version, profile name and the full error.
