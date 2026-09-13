@@ -387,7 +387,7 @@ preset 够不到 `@deepseek-ai/dsh-tools`。所以插件刻意不依赖任何包
 | 视觉提示词 | ✅ 实测（多轮） |
 | **工具把图像直接交给模型**（image 内容块） | ✅ 已实测（探针验证真的送达） |
 | `see_screen` 的转录兼容路径 | ✅ 实测（多轮，见成本一节） |
-| **bundle 方式安装** | ✅ 已在真实实例上装过（0.3.0）：`dsh plugin --profile web add <本地目录>` 成功，`dsh --profile web --dump-config` 退出码 0 且组合树里出现 `- id: screen-reader`。**尚未验证的是重启后会话里的工具列表**（需要重启进程，我没在会话中途重启） |
+| **bundle 方式安装** | ✅ **全链路已验证**（0.3.0）：`dsh plugin --profile web add <本地目录>` 成功；`--dump-config` 组合树含 `- id: screen-reader`；**重启后查运行中进程的 `Tool.listTools`，确实返回 `see_screen` 与 `see_diff`**——而且在一个**并未选择读屏 preset** 的会话里同样可见，证明它是宿主平面的、对所有对话生效；已安装产物的两个后端也各自真跑过一次（抓屏 576×54、差分 4 区域且输入图未被删除） |
 | **准确率的单一数字** | ⚠️ 只有一次**极小样本**的字符准确率（见下），**不构成基准** |
 | `screen_watch` / `screen_memory` 的实用价值 | ❌ **从未被任何真实用例证明**（这是 0.3 删除它们的直接理由） |
 | `vision_selftest` 的自动打分 | ❌ 从未跑过（已删除） |

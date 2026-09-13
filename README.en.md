@@ -420,7 +420,7 @@ selected object went from 0/3 to 2/2.
 | Vision prompt | ✅ measured over several rounds |
 | **Tools hand the image to the model** (image content block) | ✅ measured (a probe confirmed real delivery) |
 | `see_screen`'s transcription compatibility path | ✅ measured over several rounds (see Cost) |
-| **Bundle install** | ✅ performed on a real instance (0.3.0): `dsh plugin --profile web add <local dir>` succeeded and `dsh --profile web --dump-config` exited 0 with `- id: screen-reader` present in the composed tree. **Still unconfirmed: the tool list inside a session after restart** (that needs a process restart, which I did not do mid-session) |
+| **Bundle install** | ✅ **verified end to end** (0.3.0): `dsh plugin --profile web add <local dir>` succeeded; `--dump-config` shows `- id: screen-reader` in the composed tree; after a restart, querying `Tool.listTools` on the running process returns **`see_screen` and `see_diff`** — and they are visible in a session that did **not** select the screen preset, proving the row is host-plane and reaches every conversation. Both backends of the installed artifact were also exercised for real (capture 576×54; diff 4 regions with the input images surviving) |
 | **A single accuracy number** | ⚠️ only one **tiny-sample** character accuracy (below); **not a benchmark** |
 | Practical value of `screen_watch` / `screen_memory` | ❌ **never demonstrated by any real use case** (the direct reason 0.3 removed them) |
 | `vision_selftest` scoring | ❌ never ran (removed) |
