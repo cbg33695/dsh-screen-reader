@@ -238,18 +238,35 @@ token 栅格。插件看得和内置视觉**一样清楚**，不多一分。
 
 ## 安装
 
-### 方式一：作为 profile bundle（推荐，**尚未在真实实例上装过**）
+### 方式一：作为 profile bundle（推荐，**已在真实实例上装过并验证组合**）
 
 ```bash
-dsh profile add <profile-name> dsh-screen-reader
+dsh plugin --profile <profile-name> add <包名或本地路径>
+# 例如本地目录：
+#   dsh plugin --profile web add C:\path\to\dsh-screen-reader
 ```
 
-装完重启 DSH，然后在任意会话里问它"你现在有哪些和屏幕、图片相关的工具？"——
+`dsh plugin` 把参数透传给 pnpm，然后**自动把所有声明了 `dsh.bundle.patch` 的依赖加入
+`dsh.profile.bundles` 层栈**——本包声明了它，所以不需要手工改配置。
+
+**装完必须重启 DSH**，这一行才会进入运行中的组合：bundle 层栈是在进程启动时组合的，
+运行中的进程不会感知到新装的包。
+
+验证装上了没有（不重启也能查）：
+
+```bash
+dsh --profile <profile-name> --dump-config
+# 输出里应当出现：
+#   # == dsh-screen-reader
+#   - id: screen-reader
+#     name: dsh-screen-reader
+```
+
+然后重启 DSH，在任意会话里问它"你现在有哪些和屏幕、图片相关的工具？"——
 应当列出**两个**：`see_screen`、`see_diff`。
 
-这是 DSH 生态的标准做法，也是我把它列为推荐首选的原因：一条命令、不用切 preset、对试用者
-门槛最低。**但我本人没有在真实实例上装过一次**（见状态表）。如果你的实例不接受它，请用方式
-二，并把完整报错发到 issue。
+**这一行用 `link:` 指向包目录**（pnpm 对本地目录依赖用的就是链接），所以**别把那个目录删了或
+移走**，否则 DSH 启动会找不到它。要卸载：`dsh plugin --profile <profile-name> remove dsh-screen-reader`。
 
 > ⚠️ **0.2.0 的 bundle 是坏的，0.2.1 才修好。** 我代码审查时发现：`lib/screen.js` 与
 > `lib/toolbox.js` 原来用 `new URL('capture.ps1', import.meta.url)` 找 PowerShell 助手，
@@ -258,7 +275,6 @@ dsh profile add <profile-name> dsh-screen-reader
 > `The argument '.../lib/capture.ps1' to the -File parameter does not exist.`
 > 现在改成运行期同时适配两种布局（同一份源码在 preset 与发布包里都对），并且把这个检查写进了
 > 生成脚本的断言（`tools/build-lib.mjs`）。如果你装的是 0.2.0，请升级。
-> **但要说清楚**：我验证的是"路径能解析到真实文件并成功抓屏"，**仍然没有在真实实例上完整装过一次**。
 
 ### 方式二：作为 agent preset（**已验证可用**）
 
@@ -371,7 +387,7 @@ preset 够不到 `@deepseek-ai/dsh-tools`。所以插件刻意不依赖任何包
 | 视觉提示词 | ✅ 实测（多轮） |
 | **工具把图像直接交给模型**（image 内容块） | ✅ 已实测（探针验证真的送达） |
 | `see_screen` 的转录兼容路径 | ✅ 实测（多轮，见成本一节） |
-| **bundle 方式安装** | ⚠️ 未在真实实例装过。但 **0.2.1 修掉了一个必然让 bundle 失败的路径 bug**（见安装一节），并已实测"包能导入 + 解析出的 ps1 真实存在 + 用它成功抓屏" |
+| **bundle 方式安装** | ✅ 已在真实实例上装过（0.3.0）：`dsh plugin --profile web add <本地目录>` 成功，`dsh --profile web --dump-config` 退出码 0 且组合树里出现 `- id: screen-reader`。**尚未验证的是重启后会话里的工具列表**（需要重启进程，我没在会话中途重启） |
 | **准确率的单一数字** | ⚠️ 只有一次**极小样本**的字符准确率（见下），**不构成基准** |
 | `screen_watch` / `screen_memory` 的实用价值 | ❌ **从未被任何真实用例证明**（这是 0.3 删除它们的直接理由） |
 | `vision_selftest` 的自动打分 | ❌ 从未跑过（已删除） |

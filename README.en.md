@@ -254,19 +254,37 @@ pretending to succeed.
 
 ## Install
 
-### Option 1 — as a profile bundle (recommended, **never installed on a real instance**)
+### Option 1 — as a profile bundle (recommended, **installed on a real instance and composition-verified**)
 
 ```bash
-dsh profile add <profile-name> dsh-screen-reader
+dsh plugin --profile <profile-name> add <package-or-local-path>
+# for a local directory:
+#   dsh plugin --profile web add C:\path\to\dsh-screen-reader
 ```
 
-Restart DSH, then ask any session "which tools do you have related to screens and images?" — it should
-list **two**: `see_screen` and `see_diff`.
+`dsh plugin` forwards its arguments to pnpm and then **automatically appends every dependency that
+declares `dsh.bundle.patch` to the `dsh.profile.bundles` layer stack** — this package declares it, so
+no manual configuration is needed.
 
-This is the ecosystem's standard shape and the reason it is listed first: one command, no preset
-switching, lowest friction for someone trying it out. **But I have never installed it on a real
-instance** (see the verification table). If your instance refuses it, use Option 2 and paste the full
-error into an issue.
+**DSH must be restarted** before the row joins the running composition: the bundle layer stack is
+composed at process start, so a running process never notices a newly installed package.
+
+Check that it landed, without restarting:
+
+```bash
+dsh --profile <profile-name> --dump-config
+# the output should contain:
+#   # == dsh-screen-reader
+#   - id: screen-reader
+#     name: dsh-screen-reader
+```
+
+Then restart DSH and ask any session "which tools do you have related to screens and images?" — it
+should list **two**: `see_screen` and `see_diff`.
+
+**The row is a `link:` to the package directory** (that is what pnpm does for local directory
+dependencies), so **do not delete or move that directory** — DSH would fail to find it at startup. To
+uninstall: `dsh plugin --profile <profile-name> remove dsh-screen-reader`.
 
 > ⚠️ **The 0.2.0 bundle was broken; 0.2.1 fixes it.** Reviewing the code, I found that `lib/screen.js`
 > and `lib/toolbox.js` located their PowerShell helpers with `new URL('capture.ps1', import.meta.url)`
@@ -276,8 +294,9 @@ error into an issue.
 > The runtime now handles both layouts (the same source is correct as a preset and as a package), and
 > that check is now an assertion in the generator (`tools/build-lib.mjs`). If you installed 0.2.0,
 > please upgrade.
-> **To be explicit:** what I verified is "the path resolves to a real file and a capture succeeds
-> through it". I still have **not** completed a real bundle install on a live instance.
+> **To be explicit:** what is verified is the install and the composed tree. The tool list inside a
+> restarted session is still unconfirmed — that needs a process restart, which I did not perform
+> mid-session.
 
 ### Option 2 — as an agent preset (**verified working**)
 
@@ -401,7 +420,7 @@ selected object went from 0/3 to 2/2.
 | Vision prompt | ✅ measured over several rounds |
 | **Tools hand the image to the model** (image content block) | ✅ measured (a probe confirmed real delivery) |
 | `see_screen`'s transcription compatibility path | ✅ measured over several rounds (see Cost) |
-| **Bundle install** | ⚠️ never installed on a real instance. But **0.2.1 fixed a path bug that made every bundle install fail** (see Install), and I did verify "package imports + the resolved .ps1 really exists + a capture succeeds through it" |
+| **Bundle install** | ✅ performed on a real instance (0.3.0): `dsh plugin --profile web add <local dir>` succeeded and `dsh --profile web --dump-config` exited 0 with `- id: screen-reader` present in the composed tree. **Still unconfirmed: the tool list inside a session after restart** (that needs a process restart, which I did not do mid-session) |
 | **A single accuracy number** | ⚠️ only one **tiny-sample** character accuracy (below); **not a benchmark** |
 | Practical value of `screen_watch` / `screen_memory` | ❌ **never demonstrated by any real use case** (the direct reason 0.3 removed them) |
 | `vision_selftest` scoring | ❌ never ran (removed) |

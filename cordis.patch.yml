@@ -1,13 +1,22 @@
 # Profile-bundle patch layer for dsh-screen-reader.
 #
-# Installing this package as a profile bundle inserts ONE host row that loads this
-# package itself. Everything the plugin contributes (all eight tools) is installed
-# from that single entry point, so no preset switch is needed and the tools are
-# available to every session.
+# Installing this package as a profile bundle inserts ONE host row that loads the
+# package's single entry point (`lib/index.js`). Both halves — `see_screen` from
+# lib/screen.js and `see_diff` from lib/toolbox.js — install from that one entry, so
+# no preset switch is needed and BOTH tools are available to EVERY session in the
+# profile. That is the difference between this and installing as an agent preset:
+# a preset is chosen per session, a bundle is not.
 #
-# `config` is intentionally empty in 0.1.0: the tunables live as named constants at
-# the top of lib/vision.js so they can be read and changed in one place. Passing a
-# config object is accepted but unused for now.
+# The row publishes no service; it only registers into the host `tools` registry, so
+# it needs no `isolate` realm even though it lives in a profile composition.
+#
+# The .ps1 helpers are located at RUNTIME by the module that uses them, trying the
+# sibling path first and then `../scripts/`. That is why this package does not need a
+# build step to rewrite those paths (0.2.0 shipped one that was never rewritten, and
+# every bundle install failed on its first capture).
+#
+# `config` is deliberately empty: the tunables are named constants at the top of
+# lib/screen.js and lib/toolbox.js. A config object is accepted but unused.
 
 - insert:
     - id: screen-reader
