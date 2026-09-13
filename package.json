@@ -1,54 +1,54 @@
 {
-  "name": "dsh-screen-reader",
-  "version": "0.3.0",
-  "description": "Give the agent eyes on the screen: capture the whole desktop, one window, or one region and hand the IMAGE ITSELF to the session model (no second model, no description layer), plus an exact local pixel diff that locates what actually changed between two images instead of asking a model to guess. Windows only.",
-  "type": "module",
-  "author": "cbg33695",
-  "license": "MIT",
-  "main": "lib/index.js",
-  "exports": {
-    ".": "./lib/index.js",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "lib/",
-    "scripts/",
-    "cordis.patch.yml",
-    "README.md",
-    "README.en.md",
-    "LICENSE"
-  ],
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
-  },
-  "os": [
-    "win32"
-  ],
-  "engines": {
-    "node": "^22.19.0 || >=24.0.0"
-  },
-  "keywords": [
-    "deepseek",
-    "deepseek-harness",
-    "dsh",
-    "dsh-plugin",
-    "vision",
-    "screen",
-    "screenshot",
-    "multimodal",
-    "pixel-diff",
-    "image-diff",
-    "cordis",
-    "windows"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/cbg33695/dsh-screen-reader.git"
-  },
-  "bugs": {
-    "url": "https://github.com/cbg33695/dsh-screen-reader/issues"
-  },
-  "homepage": "https://github.com/cbg33695/dsh-screen-reader#readme"
+    "name":  "dsh-screen-reader",
+    "version":  "0.3.1",
+    "description":  "Give the agent eyes on the screen: capture the whole desktop, one window, or one region and hand the IMAGE ITSELF to the session model (no second model, no description layer), plus an exact local pixel diff that locates what actually changed between two images instead of asking a model to guess. Windows only.",
+    "type":  "module",
+    "author":  "cbg33695",
+    "license":  "MIT",
+    "main":  "lib/index.js",
+    "exports":  {
+                    ".":  "./lib/index.js",
+                    "./package.json":  "./package.json"
+                },
+    "files":  [
+                  "lib/",
+                  "scripts/",
+                  "cordis.patch.yml",
+                  "README.md",
+                  "README.en.md",
+                  "LICENSE"
+              ],
+    "dsh":  {
+                "bundle":  {
+                               "patch":  "./cordis.patch.yml"
+                           }
+            },
+    "os":  [
+               "win32"
+           ],
+    "engines":  {
+                    "node":  "^22.19.0 || \u003e=24.0.0"
+                },
+    "keywords":  [
+                     "deepseek",
+                     "deepseek-harness",
+                     "dsh",
+                     "dsh-plugin",
+                     "vision",
+                     "screen",
+                     "screenshot",
+                     "multimodal",
+                     "pixel-diff",
+                     "image-diff",
+                     "cordis",
+                     "windows"
+                 ],
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/cbg33695/dsh-screen-reader.git"
+                   },
+    "bugs":  {
+                 "url":  "https://github.com/cbg33695/dsh-screen-reader/issues"
+             },
+    "homepage":  "https://github.com/cbg33695/dsh-screen-reader#readme"
 }

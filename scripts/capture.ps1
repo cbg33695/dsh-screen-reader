@@ -6,12 +6,20 @@
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File capture.ps1 -Mode window -Query blender -Region 0.4,0.2,0.5,0.6 -Out C:\temp\x.png
 #
 # Output is line-oriented KEY=VALUE so the caller can parse it without JSON:
-#   TARGET=<what was captured>
-#   SIZE=<w>x<h>
+#   SOURCE=<what was captured, in words>   "virtual screen", or "<process> | <window title>"
+#   SOURCESIZE=<w>x<h>                     the captured surface, BEFORE any region crop
+#   REGION=<x>,<y>,<w>,<h>                 normalized crop spec; this line is OMITTED when no region was used
+#   SIZE=<w>x<h>                           the written PNG - what the caller actually receives
 #   NONBLACK=<percent of sampled pixels that are not near-black>
 #   SIG=<base64 of a SigW x SigH grayscale fingerprint>
 #   PATH=<absolute path of the written PNG>
 #   ERR=<reason>            (only on failure; nothing else is printed)
+#   TARGET=<deprecated alias for SOURCE, description only, no dimensions>
+#
+# SOURCESIZE and SIZE are deliberately two fields. They used to be one field named
+# TARGET that carried both the description and an embedded "1920x1080"-looking string:
+# a caller could read that as the image size while the written file was 1190x486.
+# SIZE is the only field that describes the artifact; SOURCESIZE describes the source.
 #
 # EXIT CODE CONTRACT: this script ALWAYS exits 0, including on failure. Failure is
 # reported only by an ERR= line, so a caller that inspects only the exit code will
@@ -122,7 +130,12 @@ Add-Type -AssemblyName System.Drawing
 # --- acquire the base bitmap -------------------------------------------------
 
 $source = $null
-$target = ''
+# What was captured, IN WORDS, plus the dimensions of the captured surface. These are
+# deliberately NOT the produced image's size. The two used to share one field named TARGET
+# which embedded a string like 1920x1080 while the written PNG could be 1190x486, so anything
+# reading that field as an image size read the wrong number.
+$sourceDesc = ''
+$regionSpec = ''
 
 if ($Mode -eq 'window') {
   if ([string]::IsNullOrWhiteSpace($Query)) { Fail 'window mode needs -Query' }
@@ -175,16 +188,21 @@ public struct RECT { public int Left; public int Top; public int Right; public i
   $graphics.ReleaseHdc($hdc)
   $graphics.Dispose()
 
-  $target = $chosen.ProcessName + ' | ' + $chosen.MainWindowTitle
-  if (-not $printOk) { $target = $target + ' | PrintWindow returned false' }
+  $sourceDesc = $chosen.ProcessName + ' | ' + $chosen.MainWindowTitle
+  if (-not $printOk) { $sourceDesc = $sourceDesc + ' | PrintWindow returned false' }
 } else {
   $virtual = [System.Windows.Forms.SystemInformation]::VirtualScreen
   $source = New-Object System.Drawing.Bitmap($virtual.Width, $virtual.Height)
   $graphics = [System.Drawing.Graphics]::FromImage($source)
   $graphics.CopyFromScreen($virtual.Location, [System.Drawing.Point]::Empty, $virtual.Size)
   $graphics.Dispose()
-  $target = 'virtual screen ' + $virtual.Width + 'x' + $virtual.Height
+  $sourceDesc = 'virtual screen'
 }
+
+# Dimensions of the surface actually captured, BEFORE any region crop. Emitted as
+# SOURCESIZE, separate from SIZE (the produced PNG), so the two cannot be conflated.
+$sourceW = $source.Width
+$sourceH = $source.Height
 
 # --- optional region crop (normalized 0..1 against the base bitmap) ----------
 
@@ -223,7 +241,11 @@ if (-not [string]::IsNullOrWhiteSpace($Region)) {
   $cg.Dispose()
   $source.Dispose()
   $source = $crop
-  $target = $target + ' | region ' + $rx + ',' + $ry + ',' + $rw + ',' + $rh
+  # -join, not +: $rx..$rh are [double], and an expression that STARTS with a double
+  # makes PowerShell parse a following `+ ','` as numeric addition, which throws
+  # "Cannot convert value ',' to type System.Double". The previous code got away with
+  # + only because it started from a string.
+  $regionSpec = @($rx, $ry, $rw, $rh) -join ','
 }
 
 $innerW = $source.Width
@@ -261,7 +283,19 @@ $sig = [Convert]::ToBase64String($bytes)
 $source.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
 $source.Dispose()
 
-Write-Output ('TARGET=' + $target)
+# DEPRECATED ALIAS - kept only so a version mix degrades instead of breaking.
+#
+# The plugin module that parses this output is loaded once at process start, while
+# this script is executed fresh on every call. Right after an upgrade an older module
+# can therefore still be reading TARGET=. Emitting it means that window shows a
+# slightly plainer line instead of an empty field.
+#
+# It carries the DESCRIPTION ONLY - never dimensions. Carrying both is exactly what
+# this release removed, and re-adding it here would restore the misreading.
+Write-Output ('TARGET=' + $sourceDesc)
+Write-Output ('SOURCE=' + $sourceDesc)
+Write-Output ('SOURCESIZE=' + $sourceW + 'x' + $sourceH)
+if ($regionSpec -ne '') { Write-Output ('REGION=' + $regionSpec) }
 Write-Output ('SIZE=' + $innerW + 'x' + $innerH)
 Write-Output ('NONBLACK=' + $nonBlackPct)
 Write-Output ('SIG=' + $sig)

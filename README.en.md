@@ -233,16 +233,39 @@ Rolling screen memory (`screen_memory` / `screen_watch`) existed to cover this a
 0.3**: no real use case ever demonstrated its value, while every recorded frame wrote a file into the
 attachment store. So today it genuinely **sees only the present**.
 
-### 6. The attachment store grows
+### 6. The attachment store grows, and there is **no cleanup mechanism at all**
 
 Every vision call writes a content-addressed file into `${DSH_HOME}/attachments`, and **the plugin
-cannot prevent it** (image blocks in `llm.stream` need a persisted attachment reference).
+cannot prevent it**.
 
-Observed: **it keeps growing** — after one long session it reached **112 files / 19.58 MB**. It was
-also once observed emptying itself (28 files / 2.1 MB → 0), and the trigger **remains unidentified**.
+**Measured (2026-09-14, this machine's web profile): 215 files / 40.24 MB**, accumulating 9 → 25 → 83
+→ 87 → 13 files per day since 09-10. Its composition:
 
-0.2.1 had a `vision_storage` tool to report and optionally prune that directory; **0.3 removed it**
-(it was a diagnostic, not a capability). Look in that directory yourself if you need to.
+| Subtree | Contents | Measured |
+|---|---|---|
+| `v1/objects` | normalized attachments — what image blocks in session history reference | 118 files / 35.25 MB |
+| `v1/request-images` | model-request variant cache (per route and pixel budget) | 97 files / 4.98 MB |
+| `v1/tmp` | temporary | 0 |
+
+**Why the plugin cannot clean it up — this is not "was not done", it is not possible:**
+
+The `attachments` service describes itself as an **"Immutable binary attachment service"**, and its
+methods are only `validateImage` / `saveImage(s)` / `readImage` / `imageHostPath` /
+`readImageRequest`. **There is no delete, no prune, no gc.** And `readImage` verifies that the bytes
+still match the recorded reference, so deleting files behind the service's back makes images in past
+conversations **unreadable** — those references are persisted in the session log.
+
+This is not specific to this plugin: **any** image entering a conversation writes here — ones you
+paste yourself, the built-in `read_image`, `generate_image`. The 80 WEBP files in the table above are
+not from this plugin (it stores PNG only). The real fix belongs at the DSH level (a retention policy
+for that immutable store), not inside one plugin.
+
+0.2.1 had a `vision_storage` tool that reported and optionally pruned that directory; **0.3 removed
+it**. Removing it took away no capability: its "prune" was the dangerous half, and a safe prune never
+existed. To see how big it is, just look at the directory.
+
+**The only honest way to reclaim the space**: delete `${DSH_HOME}/attachments` outright — at the cost
+of images in **every** past conversation no longer rendering. That is a trade-off, not a cleanup.
 
 ### 7. Windows only
 
@@ -358,8 +381,8 @@ This section matters, because screen contents are the most sensitive thing here.
 3. **On disk the plugin keeps one image**: a fixed path overwritten in place
    (`${DSH_HOME}/vision/screen.png`), deleted when the plugin stops
 4. **But the attachment store is a separate matter**: every vision call adds a content-addressed file
-   under `${DSH_HOME}/attachments` and **nothing cleans it up** (observed at 112 files / 19.58 MB in
-   one session). See boundary 6
+   under `${DSH_HOME}/attachments` and **nothing can clean it up** (measured 215 files / 40.24 MB; see
+   boundary 6)
 5. **`see_diff` never captures the screen**: it only reads the two image files you point it at
 6. **Suggestion**: call it when needed; there is no longer any reason to leave it "on", because it no
    longer captures anything by itself
@@ -436,6 +459,26 @@ far too small to call an accuracy rate — all it shows is that the full-screen 
 ---
 
 ## Known issues and plans
+
+**What 0.3.1 changed (the capture output contract) — this is a breaking field rename:**
+
+- **`TARGET` split into `SOURCE` / `SOURCESIZE` / `REGION`.** `capture.ps1` used to emit a `TARGET`
+  that carried both a description of *what was captured* **and** a size-looking string like
+  `1920x1080`, while `SIZE` held the artifact's dimensions. So `TARGET=virtual screen 1920x1080`
+  could accompany a written file of `1190x486` — anything reading that field as an image size read
+  the wrong number. **This is not hypothetical**: another session tripped over exactly that during a
+  real acceptance test. Now each of the four lines says one thing: `SOURCE` (words only, no
+  dimensions), `SOURCESIZE` (the captured surface), `REGION` (present only when a crop was used),
+  `SIZE` (the artifact — the only field describing the output).
+- `see_screen`'s output fields follow: `target` became `source` + `sourceSize` + `region`, and the
+  rendered line now separates the two sizes: `截图范围：virtual screen（区域 …）；源 1920x1080 → 成品 1190x486`.
+  **If a prompt or script of yours reads `target`, change it.**
+- Also fixed a bug I introduced while making that change: `$rx` is a `[double]`, and an expression
+  *starting* with a double makes PowerShell treat `+ ','` as numeric addition, throwing
+  `Cannot convert value "," to type System.Double`. Now uses `-join`. The old code only escaped this
+  because it started from a string.
+- Verified across all four modes (screen / screen+region / window / window+region), and **`SIZE` was
+  checked byte-for-byte against the real dimensions in the PNG's IHDR**.
 
 **What 0.3.0 changed:**
 
