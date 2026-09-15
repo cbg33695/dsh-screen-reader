@@ -1,6 +1,6 @@
 {
     "name":  "dsh-screen-reader",
-    "version":  "0.3.1",
+    "version":  "0.3.2",
     "description":  "Give the agent eyes on the screen: capture the whole desktop, one window, or one region and hand the IMAGE ITSELF to the session model (no second model, no description layer), plus an exact local pixel diff that locates what actually changed between two images instead of asking a model to guess. Windows only.",
     "type":  "module",
     "author":  "cbg33695",

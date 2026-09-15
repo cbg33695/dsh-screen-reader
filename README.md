@@ -421,6 +421,36 @@ preset 够不到 `@deepseek-ai/dsh-tools`。所以插件刻意不依赖任何包
 
 ## 已知问题与后续计划
 
+**0.3.2 改了什么（对纯文本会话模型从"炸"变成"能用"）：**
+
+- **`see_screen` 现在自己判断会话模型收不收图，收不了就自动转录。** 根因是 provider 在发送前会扫
+  `messages` 里有没有 image，只要模型没有声明 `inputModalities` 含 image 就
+  **直接抛 `LlmError`**（`dsh-llm-deepseek` L1602-1605）——**整个请求失败，模型连正文都看不到**。
+  而一台机器上配的模型可以有很多个，图像输入是少数派：
+
+  | 路由 | 图像输入 |
+  |---|---|
+  | `deepseek-official/deepseek-v4-flash` | ❌ 纯文本 |
+  | `deepseek-official/deepseek-v4-pro` | ❌ 纯文本 |
+  | `deepseek-official/deepseek-v4-flash-vision-exp` | ✅ |
+  | `local-ollama/qwen3:1.7b` / `qwen3:0.6b` / `qwen3-4b-fast` | ❌ 纯文本 |
+
+  （上表是本机实测，6 个里只有 1 个收图。）所以在纯文本会话里，这个工具不是"不好用"，而是
+  **一调就把那一轮弄坏**，agent 于是学会了别碰它。现在它按 `agent.options` 里的
+  `{provider, model}`（经 `agents.currentInitiator()` 取得，已实测可用）去问
+  `llm.resolveModelInfo(...).inputModalities`，收不了图就自动走转录路径。
+- **顺手修了两个必然的 bug**：
+  1. **转录路径也会把图发出去**——附件在 `wantText` 分支**之前**就保存了，而 `render` 见到
+     `imageRef` 就加图像块。也就是说 `transcribe: true` 在纯文本模型上**从来没真正兼容过**。
+     现在转录路径不写附件、不返回 image 块。
+  2. **转录路径永远被判成失败**——`ok` 原本写作 `hasImage && ...`，而转录路径按设计没有
+     `imageRef`，于是 `ok=false`，render 第一分支直接报"看图失败：no capture"。一条本来能用的
+     路径被自己的成功判据废掉了。现在 `ok` 按**实际走的那条路**判定。
+- **判断不出会话模型时，按"收不了"处理。** 风险不对称：给收不了的模型发图会让整轮对话失败；
+  多走一次转录最坏只是这一次没有原图。
+- 结果里新增 `visionPath`（`image` / `transcribe`）、`sessionModel`、`note`，渲染行会明说
+  "会话模型 X 不接受图像输入，已自动改走转录路径"——**降级也要说得出来**。
+
 **0.3.1 改了什么（抓屏输出契约）——这是破坏性的字段改名：**
 
 - **`TARGET` 拆成 `SOURCE` / `SOURCESIZE` / `REGION`。** 原来 `capture.ps1` 输出的 `TARGET` 同时装着

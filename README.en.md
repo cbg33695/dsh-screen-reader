@@ -460,6 +460,42 @@ far too small to call an accuracy rate — all it shows is that the full-screen 
 
 ## Known issues and plans
 
+**What 0.3.2 changed (text-only session models go from broken to working):**
+
+- **`see_screen` now decides for itself whether the session model accepts images, and transcribes
+  automatically when it does not.** The root cause: before sending, the provider scans `messages` for
+  an image, and if the model does not declare `image` in `inputModalities` it **throws `LlmError`
+  outright** (`dsh-llm-deepseek` L1602-1605) — **the whole request fails and the model never sees even
+  the text**. And image input is the minority of what a machine may have configured:
+
+  | Route | Image input |
+  |---|---|
+  | `deepseek-official/deepseek-v4-flash` | ❌ text only |
+  | `deepseek-official/deepseek-v4-pro` | ❌ text only |
+  | `deepseek-official/deepseek-v4-flash-vision-exp` | ✅ |
+  | `local-ollama/qwen3:1.7b` / `qwen3:0.6b` / `qwen3-4b-fast` | ❌ text only |
+
+  (Measured on one machine: 1 of 6 routes accepts images.) So in a text-only session this tool is not
+  merely unhelpful — **calling it once wrecks that turn**, and the agent learns to leave it alone. It
+  now reads `{provider, model}` from `agent.options` (via `agents.currentInitiator()`, verified
+  working) and asks `llm.resolveModelInfo(...).inputModalities`; when images are not accepted it takes
+  the transcription path.
+- **Two certain bugs fixed along the way:**
+  1. **The transcription path still sent the image** — the attachment was saved *before* the
+     `wantText` branch, and `render` adds an image block whenever `imageRef` is present. So
+     `transcribe: true` **never actually worked** on a text-only model. The transcription path now
+     writes no attachment and returns no image block.
+  2. **The transcription path always judged itself a failure** — `ok` was written as
+     `hasImage && ...`, and that path has no `imageRef` by design, so `ok=false` and `render` took its
+     first branch: "看图失败：no capture". A working path was disabled by its own success test. `ok`
+     is now decided by **which path actually ran**.
+- **When the session model cannot be determined, it is treated as "does not accept images."** The risk
+  is asymmetric: sending an image to a model that rejects it fails the entire conversation turn, while
+  transcribing at worst costs one look without the original image.
+- The result gains `visionPath` (`image` / `transcribe`), `sessionModel` and `note`, and the rendered
+  line says plainly that the session model does not accept images and a transcription was used —
+  **a degradation has to be stated, not hidden**.
+
 **What 0.3.1 changed (the capture output contract) — this is a breaking field rename:**
 
 - **`TARGET` split into `SOURCE` / `SOURCESIZE` / `REGION`.** `capture.ps1` used to emit a `TARGET`
